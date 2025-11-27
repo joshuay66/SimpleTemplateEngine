@@ -17,7 +17,7 @@ from simple models without pulling in heavy template engines.
 ### Using .NET CLI
 
 ```bash
-dotnet add package SimpleTemplateEngine
+dotnet add package 
 ```
 
 (If unpublished yet, substitute with a local project reference.)
