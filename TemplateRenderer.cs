@@ -3,7 +3,7 @@ using System.Collections;
 using System.Linq;
 using System.Reflection;
 
-namespace SimpleTemplateEngine
+namespace JY66.SimpleTemplateEngine
 {
     [AttributeUsage(AttributeTargets.Class | AttributeTargets.Struct, AllowMultiple = false, Inherited = true)]
     public sealed class TemplateAttribute : Attribute

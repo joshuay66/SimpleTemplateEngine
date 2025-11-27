@@ -1,5 +1,5 @@
 using Microsoft.Extensions.Configuration;
-using SimpleTemplateEngine;
+using JY66.SimpleTemplateEngine;
 
 public sealed class ConfigurationTemplateSource : ITemplateSource
 {
