@@ -29,7 +29,7 @@ dotnet add package JY66.SimpleTemplateEngine
 ### 1. Define a model and attach a template key
 
 ```csharp
-using SimpleTemplateEngine;
+using JY66.SimpleTemplateEngine;
 
 [Template("Emails:Welcome:Body")]
 public class WelcomeEmailModel
