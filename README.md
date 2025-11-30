@@ -18,6 +18,7 @@ from simple models without pulling in heavy template engines.
 
 ```bash
 dotnet add package JY66.SimpleTemplateEngine
+dotnet add package JY66.SimpleTemplateEngine.Adapters.Configuration
 ```
 
 (If unpublished yet, substitute with a local project reference.)
