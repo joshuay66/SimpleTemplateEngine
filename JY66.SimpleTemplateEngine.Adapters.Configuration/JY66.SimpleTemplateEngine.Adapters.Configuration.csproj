@@ -1,7 +1,7 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <ItemGroup>
-    <ProjectReference Include="..\SimpleTemplateEngine\SimpleTemplateEngine.csproj" />
+    <ProjectReference Include="..\JY66.SimpleTemplateEngine\SimpleTemplateEngine.csproj" />
   </ItemGroup>
 
   <PropertyGroup>
