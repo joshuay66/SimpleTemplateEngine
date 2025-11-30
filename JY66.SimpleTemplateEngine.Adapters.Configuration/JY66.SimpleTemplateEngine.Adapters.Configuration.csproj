@@ -1,14 +1,17 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
+  <ItemGroup>
+    <ProjectReference Include="..\SimpleTemplateEngine\SimpleTemplateEngine.csproj" />
+  </ItemGroup>
+
   <PropertyGroup>
-    <TargetFramework>net10.0</TargetFramework>
-    <ImplicitUsings>enable</ImplicitUsings>
+    <TargetFramework>netstandard2.1</TargetFramework>
     <Nullable>enable</Nullable>
 
     <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
 
-    <PackageId>JY66.SimpleTemplateEngine</PackageId>
-    <Version>1.0.0</Version>
+    <PackageId>JY66.SimpleTemplateEngine.Adapters.Configuration</PackageId>
+    <Version>1.0.1</Version>
     <Authors>Josh Yates</Authors>
     <Company></Company>
     <Description>A lightweight templating engine for .NET.</Description>
