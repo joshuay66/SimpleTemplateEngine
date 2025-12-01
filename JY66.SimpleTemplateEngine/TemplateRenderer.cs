@@ -95,6 +95,11 @@ namespace JY66.SimpleTemplateEngine
 
                             template = template.Replace($"**{itemTemplateKey}**", listOutput);
                         }
+                        else
+                        {
+                            //remove place holder if null
+                            template = template.Replace($"**{itemTemplateKey}**", "");
+                        }
                     }
 
                     // Don't treat list members as scalar placeholders
