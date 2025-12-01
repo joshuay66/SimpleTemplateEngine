@@ -103,9 +103,24 @@ Your code is: ||AuthorizationCode||
 
 ---
 
-## 🧮 Built-in Formatting
+## 🧮 Built-in & Inline Formatting
 
-| Type        | Output Format                                     |
+You can control formatting directly inside placeholders using the syntax:
+
+```
+||MemberName:FormatString||
+```
+
+Examples:
+
+```text
+||Amount:c2||          → $1,234.56
+||InvoiceDate:yyyy-MM-dd|| → 2024-11-26
+```
+
+If no inline format string is supplied, the engine falls back to sensible defaults:
+
+| Type        | Default Output Format                             |
 |-------------|---------------------------------------------------|
 | `decimal`   | Currency (`$1,234.56`)                            |
 | `DateTime`  | `MM/dd/yyyy h:mm tt`                              |

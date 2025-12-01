@@ -3,6 +3,8 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
+using System.Globalization;
+using System.Text.RegularExpressions;
 
 namespace JY66.SimpleTemplateEngine
 {
@@ -107,13 +109,14 @@ namespace JY66.SimpleTemplateEngine
                 }
 
                 // Scalar members
-                var placeholder = $"||{member.Name}||";
-                if (template.Contains(placeholder, StringComparison.Ordinal))
+                var pattern = $@"\|\|{member.Name}(?::([^|]+))?\|\|";
+                template = Regex.Replace(template, pattern, match =>
                 {
                     var value = GetMemberValue(model, member);
-                    var formatted = FormatValue(value, memberType);
-                    template = template.Replace(placeholder, formatted ?? string.Empty);
-                }
+                    var format = match.Groups[1].Success ? match.Groups[1].Value : null;
+                    var formatted = FormatValue(value, memberType, format);
+                    return formatted ?? string.Empty;
+                });
             }
 
             return template;
@@ -154,22 +157,32 @@ namespace JY66.SimpleTemplateEngine
                 _ => throw new NotSupportedException($"Unsupported member type: {member.MemberType}")
             };
 
-        private static string? FormatValue(object? value, Type type)
+        private static string? FormatValue(object? value, Type type, string? format = null)
         {
             if (value is null) return string.Empty;
 
             // Unwrap nullable types
             var underlying = Nullable.GetUnderlyingType(type) ?? type;
 
+            if (!string.IsNullOrEmpty(format))
+            {
+                if (value is IFormattable formattable)
+                {
+                    return formattable.ToString(format, CultureInfo.CurrentCulture);
+                }
+
+                return string.Format(CultureInfo.CurrentCulture, $"{{0:{format}}}", value);
+            }
+
             if (underlying == typeof(decimal))
             {
-                return string.Format("{0:c}", value);
+                return string.Format(CultureInfo.CurrentCulture, "{0:c}", value);
             }
 
             if (underlying == typeof(DateTime))
             {
                 var dt = (DateTime)value;
-                return dt.ToString("MM/dd/yyyy h:mm tt");
+                return dt.ToString("MM/dd/yyyy h:mm tt", CultureInfo.CurrentCulture);
             }
 
             // Fallback to ToString()
