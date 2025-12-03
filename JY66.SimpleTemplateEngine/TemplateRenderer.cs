@@ -54,15 +54,29 @@ namespace JY66.SimpleTemplateEngine
                     $"Template '{templateKey}' is empty or not configured.");
             }
 
-            return RenderInternal(model, modelType, template, templateSource);
+            return RenderInternal(
+                model,
+                modelType,
+                template,
+                templateSource,
+                new HashSet<string>(StringComparer.Ordinal),
+                templateKey);
         }
 
         private static string RenderInternal(
             object model,
             Type modelType,
             string template,
-            ITemplateSource templateSource)
+            ITemplateSource templateSource,
+            HashSet<string> renderStack,
+            string currentTemplateKey)
         {
+            if (!renderStack.Add(currentTemplateKey))
+            {
+                throw new InvalidOperationException(
+                    $"Detected circular template reference involving template '{currentTemplateKey}'.");
+            }
+
             // Get public instance fields and properties
             var fields = modelType
                 .GetFields(BindingFlags.Instance | BindingFlags.Public);
@@ -70,56 +84,99 @@ namespace JY66.SimpleTemplateEngine
                 .GetProperties(BindingFlags.Instance | BindingFlags.Public)
                 .Where(p => p.CanRead);
 
-            // Handle lists (fields + properties)
-            foreach (var member in fields.Cast<MemberInfo>().Concat(properties))
+            try
             {
-                var memberType = GetMemberType(member);
-
-                if (IsListType(memberType))
+                // Handle lists and nested templates (fields + properties)
+                foreach (var member in fields.Cast<MemberInfo>().Concat(properties))
                 {
-                    var itemType = memberType.GetGenericArguments()[0];
-                    var itemTemplateKey = GetTemplateKey(itemType);
+                    var memberType = GetMemberType(member);
+                    var placeholder = $"**{member.Name}**";
 
-                    if (itemTemplateKey != null &&
-                        template.Contains($"**{itemTemplateKey}**", StringComparison.Ordinal))
+                    if (IsListType(memberType))
                     {
-                        var list = GetMemberValue(model, member) as IEnumerable;
-                        if (list != null)
+                        if (template.Contains(placeholder, StringComparison.Ordinal))
                         {
-                            var listOutput = "";
-                            foreach (var item in list)
-                            {
-                                if (item == null) continue;
-                                var itemTemplate = templateSource.GetTemplate(itemTemplateKey);
-                                var renderedItem = RenderInternal(item, item.GetType(), itemTemplate, templateSource);
-                                listOutput += renderedItem;
-                            }
+                            var itemType = memberType.GetGenericArguments()[0];
+                            var itemTemplateKey = GetTemplateKey(itemType)
+                                ?? throw new InvalidOperationException(
+                                    $"Member '{member.Name}' does not have an associated template.");
 
-                            template = template.Replace($"**{itemTemplateKey}**", listOutput);
+                            var list = GetMemberValue(model, member) as IEnumerable;
+                            if (list != null)
+                            {
+                                var listOutput = "";
+                                foreach (var item in list)
+                                {
+                                    if (item == null) continue;
+                                    var itemTemplate = templateSource.GetTemplate(itemTemplateKey);
+                                    var renderedItem = RenderInternal(
+                                        item,
+                                        item.GetType(),
+                                        itemTemplate,
+                                        templateSource,
+                                        renderStack,
+                                        itemTemplateKey);
+                                    listOutput += renderedItem;
+                                }
+
+                                template = template.Replace(placeholder, listOutput);
+                            }
+                            else
+                            {
+                                // remove placeholder if null
+                                template = template.Replace(placeholder, string.Empty);
+                            }
+                        }
+
+                        // Don't treat list members as scalar placeholders
+                        continue;
+                    }
+
+                    if (template.Contains(placeholder, StringComparison.Ordinal))
+                    {
+                        var nestedTemplateKey = GetTemplateKey(memberType)
+                            ?? throw new InvalidOperationException(
+                                $"Member '{member.Name}' does not have an associated template.");
+
+                        var nestedValue = GetMemberValue(model, member);
+                        if (nestedValue == null)
+                        {
+                            template = template.Replace(placeholder, string.Empty);
                         }
                         else
                         {
-                            //remove place holder if null
-                            template = template.Replace($"**{itemTemplateKey}**", "");
+                            var nestedTemplate = templateSource.GetTemplate(nestedTemplateKey);
+                            var nestedRendered = RenderInternal(
+                                nestedValue,
+                                nestedValue.GetType(),
+                                nestedTemplate,
+                                templateSource,
+                                renderStack,
+                                nestedTemplateKey);
+                            template = template.Replace(placeholder, nestedRendered);
                         }
+
+                        // Don't treat nested template placeholders as scalars
+                        continue;
                     }
 
-                    // Don't treat list members as scalar placeholders
-                    continue;
+                    // Scalar members
+                    var pattern = $@"\|\|{member.Name}(?::([^|]+))?\|\|";
+                    template = Regex.Replace(template, pattern, match =>
+                    {
+                        var value = GetMemberValue(model, member);
+                        var format = match.Groups[1].Success ? match.Groups[1].Value : null;
+                        var formatted = FormatValue(value, memberType, format);
+                        return formatted ?? string.Empty;
+                    });
                 }
 
-                // Scalar members
-                var pattern = $@"\|\|{member.Name}(?::([^|]+))?\|\|";
-                template = Regex.Replace(template, pattern, match =>
-                {
-                    var value = GetMemberValue(model, member);
-                    var format = match.Groups[1].Success ? match.Groups[1].Value : null;
-                    var formatted = FormatValue(value, memberType, format);
-                    return formatted ?? string.Empty;
-                });
+                return template;
             }
-
-            return template;
+            finally
+            {
+                renderStack.Remove(currentTemplateKey);
+            }
         }
 
         private static string? GetTemplateKey(Type type)

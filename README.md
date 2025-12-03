@@ -83,7 +83,7 @@ Hi Josh, thanks for signing up on 11/26/2025 4:15 PM!
 
 ## 🧩 Placeholder Rules
 
-Placeholders match *public properties or public fields* on your model:
+Scalar placeholders match *public properties or public fields* on your model:
 
 ```
 ||PropertyName||
@@ -100,6 +100,21 @@ Template:
 ```
 Your code is: ||AuthorizationCode||
 ```
+
+For nested objects or lists of objects that have their own `[Template]`, use the
+member name wrapped in double asterisks:
+
+```
+**MemberName**
+```
+
+- If `MemberName` is a single object, its template is rendered once and inserted.
+- If `MemberName` is a `List<T>`, each item is rendered with the template for `T`
+  and concatenated in place.
+- If the member type lacks a `[Template]` attribute, rendering throws an
+  exception noting the member name.
+- Circular template references are detected and result in a descriptive
+  exception to prevent infinite loops.
 
 ---
 
@@ -128,12 +143,12 @@ If no inline format string is supplied, the engine falls back to sensible defaul
 
 ---
 
-## 📚 List Rendering (Recursive Templates)
+## 📚 Nested Rendering (Objects & Lists)
 
-You can render child items by embedding a special marker inside a parent template:
+Embed the `**member name**` of your child object inside the parent template:
 
 ```
-**ChildTemplateKey**
+**MemberName**
 ```
 
 ### Example
@@ -145,7 +160,15 @@ You can render child items by embedding a special marker inside a parent templat
 public class OrderSummary
 {
     public string CustomerName { get; set; }
+    public Address ShippingAddress { get; set; }
     public List<OrderLine> Lines { get; set; } = new();
+}
+
+[Template("Orders:Address")]
+public class Address
+{
+    public string Street { get; set; }
+    public string City { get; set; }
 }
 
 [Template("Orders:Line")]
@@ -160,7 +183,8 @@ public class OrderLine
 
 ```json
 "Orders": {
-  "Summary": "Order for ||CustomerName||:\n**Orders:Line**",
+  "Summary": "Order for ||CustomerName||:\nShip To:\n**ShippingAddress**\nItems:\n**Lines**",
+  "Address": "||Street||, ||City||\n",
   "Line": "- ||Description||: ||Amount||\n"
 }
 ```
@@ -169,6 +193,9 @@ public class OrderLine
 
 ```
 Order for Josh:
+Ship To:
+123 Main St, Austin
+Items:
 - Widget A: $12.95
 - Widget B: $49.00
 ```
@@ -234,7 +261,6 @@ var src = new DictionaryTemplateSource(new()
 
 ## 🔮 Roadmap
 
-- Inline formatting (`||Amount:c2||`, `||Date:yyyy-MM-dd||`)
 - Basic conditionals
 - Template caching
 - File-based template provider
