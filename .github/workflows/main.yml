@@ -1,0 +1,47 @@
+name: Publish NuGet package
+
+on:
+  # Publish when a release is created
+  release:
+    types: [published]
+  # Or uncomment this to publish on push to main
+  # push:
+  #   branches: [ main ]
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: |
+            10.0.x
+
+      - name: Restore
+        run: dotnet restore
+
+      - name: Build
+        run: dotnet build --configuration Release --no-restore
+
+      - name: Pack SimpleTemplateEngine
+        run: dotnet pack JY66.SimpleTemplateEngine/SimpleTemplateEngine.csproj \
+              --configuration Release \
+              --no-build \
+              -o ./nupkgs
+
+      - name: Pack Configuration Adapter
+        run: dotnet pack JY66.SimpleTemplateEngine.Adapters.Configuration/JY66.SimpleTemplateEngine.Adapters.Configuration.csproj \
+              --configuration Release \
+              --no-build \
+              -o ./nupkgs
+
+      - name: Push to NuGet.org
+        run: dotnet nuget push "./nupkgs/*.nupkg" \
+              --api-key "${{ secrets.NUGET_API_KEY }}" \
+              --source "https://api.nuget.org/v3/index.json" \
+              --skip-duplicate
