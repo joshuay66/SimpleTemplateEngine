@@ -145,7 +145,7 @@ If no inline format string is supplied, the engine falls back to sensible defaul
 
 ## 📚 Nested Rendering (Objects & Lists)
 
-Embed the *member name* of your child object inside the parent template:
+Embed the `**member name**` of your child object inside the parent template:
 
 ```
 **MemberName**
@@ -261,7 +261,6 @@ var src = new DictionaryTemplateSource(new()
 
 ## 🔮 Roadmap
 
-- Inline formatting (`||Amount:c2||`, `||Date:yyyy-MM-dd||`)
 - Basic conditionals
 - Template caching
 - File-based template provider
