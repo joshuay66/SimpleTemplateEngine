@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
@@ -30,6 +31,12 @@ namespace JY66.SimpleTemplateEngine
 
     public static class TemplateRenderer
     {
+        /// <summary>
+        /// Cache for compiled regex patterns to improve performance on repeated renders.
+        /// Key: member name, Value: compiled regex pattern for that member.
+        /// </summary>
+        private static readonly ConcurrentDictionary<string, Regex> _regexCache = new ConcurrentDictionary<string, Regex>();
+
         /// <summary>
         /// Renders a template for the given model by:
         ///  - Finding the model's [Template] attribute to get a template key
@@ -160,9 +167,14 @@ namespace JY66.SimpleTemplateEngine
                         continue;
                     }
 
-                    // Scalar members
-                    var pattern = $@"\|\|{member.Name}(?::([^|]+))?\|\|";
-                    template = Regex.Replace(template, pattern, match =>
+                    // Scalar members - use cached regex pattern
+                    var regex = _regexCache.GetOrAdd(member.Name, name =>
+                    {
+                        var pattern = $@"\|\|{Regex.Escape(name)}(?::([^|]+))?\|\|";
+                        return new Regex(pattern, RegexOptions.Compiled);
+                    });
+
+                    template = regex.Replace(template, match =>
                     {
                         var value = GetMemberValue(model, member);
                         var format = match.Groups[1].Success ? match.Groups[1].Value : null;

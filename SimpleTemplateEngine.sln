@@ -3,9 +3,13 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
 VisualStudioVersion = 17.5.2.0
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "JY66.SimpleTemplateEngine", "JY66.SimpleTemplateEngine\SimpleTemplateEngine.csproj", "{CFA8D825-DC8B-57FF-10B7-A966B896B7AE}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SimpleTemplateEngine", "JY66.SimpleTemplateEngine\SimpleTemplateEngine.csproj", "{CFA8D825-DC8B-57FF-10B7-A966B896B7AE}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "JY66.SimpleTemplateEngine.Adapters.Configuration", "JY66.SimpleTemplateEngine.Adapters.Configuration\JY66.SimpleTemplateEngine.Adapters.Configuration.csproj", "{1B963F63-CF8E-448B-AEDD-D5F204E010A0}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "JY66.SimpleTemplateEngine.Tests", "JY66.SimpleTemplateEngine.Tests\JY66.SimpleTemplateEngine.Tests.csproj", "{4C463599-B1A1-4E8D-B229-2F6092CA48D6}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "JY66.SimpleTemplateEngine", "JY66.SimpleTemplateEngine", "{266E0C94-535B-9721-6825-E5F07EA21B41}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -41,6 +45,18 @@ Global
 		{1B963F63-CF8E-448B-AEDD-D5F204E010A0}.Release|x64.Build.0 = Release|Any CPU
 		{1B963F63-CF8E-448B-AEDD-D5F204E010A0}.Release|x86.ActiveCfg = Release|Any CPU
 		{1B963F63-CF8E-448B-AEDD-D5F204E010A0}.Release|x86.Build.0 = Release|Any CPU
+		{4C463599-B1A1-4E8D-B229-2F6092CA48D6}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{4C463599-B1A1-4E8D-B229-2F6092CA48D6}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{4C463599-B1A1-4E8D-B229-2F6092CA48D6}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{4C463599-B1A1-4E8D-B229-2F6092CA48D6}.Debug|x64.Build.0 = Debug|Any CPU
+		{4C463599-B1A1-4E8D-B229-2F6092CA48D6}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{4C463599-B1A1-4E8D-B229-2F6092CA48D6}.Debug|x86.Build.0 = Debug|Any CPU
+		{4C463599-B1A1-4E8D-B229-2F6092CA48D6}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{4C463599-B1A1-4E8D-B229-2F6092CA48D6}.Release|Any CPU.Build.0 = Release|Any CPU
+		{4C463599-B1A1-4E8D-B229-2F6092CA48D6}.Release|x64.ActiveCfg = Release|Any CPU
+		{4C463599-B1A1-4E8D-B229-2F6092CA48D6}.Release|x64.Build.0 = Release|Any CPU
+		{4C463599-B1A1-4E8D-B229-2F6092CA48D6}.Release|x86.ActiveCfg = Release|Any CPU
+		{4C463599-B1A1-4E8D-B229-2F6092CA48D6}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
