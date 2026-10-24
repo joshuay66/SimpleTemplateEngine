@@ -5,6 +5,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 using System.Globalization;
+using System.Text;
 using System.Text.RegularExpressions;
 
 namespace JY66.SimpleTemplateEngine
@@ -32,17 +33,30 @@ namespace JY66.SimpleTemplateEngine
     public static class TemplateRenderer
     {
         /// <summary>
-        /// Cache for compiled regex patterns to improve performance on repeated renders.
-        /// Key: member name, Value: compiled regex pattern for that member.
+        /// Matches either a nested/list marker (**Member**) or a scalar placeholder
+        /// (||Member|| or ||Member:format||). The whole template is scanned exactly once
+        /// with this pattern, so text produced by a substitution is never re-scanned.
+        /// Placeholders that do not name a public member are left in place.
         /// </summary>
-        private static readonly ConcurrentDictionary<string, Regex> _regexCache = new ConcurrentDictionary<string, Regex>();
+        private static readonly Regex PlaceholderRegex = new Regex(
+            @"\*\*(?<nested>\w+)\*\*|\|\|(?<scalar>\w+)(?::(?<format>[^|]+))?\|\|",
+            RegexOptions.Compiled);
+
+        /// <summary>
+        /// Cache of renderable members (public instance fields and readable, non-indexed
+        /// properties) per model type, keyed by member name.
+        /// </summary>
+        private static readonly ConcurrentDictionary<Type, IReadOnlyDictionary<string, MemberInfo>> _memberCache =
+            new ConcurrentDictionary<Type, IReadOnlyDictionary<string, MemberInfo>>();
 
         /// <summary>
         /// Renders a template for the given model by:
         ///  - Finding the model's [Template] attribute to get a template key
         ///  - Loading the template via ITemplateSource
         ///  - Replacing ||MemberName|| placeholders with formatted values
-        ///  - Expanding list members using **ChildTemplateKey** markers
+        ///  - Expanding nested objects and lists using **MemberName** markers
+        /// Member values are inserted literally. Placeholder syntax that appears inside
+        /// a value is output as-is and is never interpreted.
         /// </summary>
         public static string Render(object model, ITemplateSource templateSource)
         {
@@ -84,111 +98,121 @@ namespace JY66.SimpleTemplateEngine
                     $"Detected circular template reference involving template '{currentTemplateKey}'.");
             }
 
-            // Get public instance fields and properties
-            var fields = modelType
-                .GetFields(BindingFlags.Instance | BindingFlags.Public);
-            var properties = modelType
-                .GetProperties(BindingFlags.Instance | BindingFlags.Public)
-                .Where(p => p.CanRead);
-
             try
             {
-                // Handle lists and nested templates (fields + properties)
-                foreach (var member in fields.Cast<MemberInfo>().Concat(properties))
-                {
-                    var memberType = GetMemberType(member);
-                    var placeholder = $"**{member.Name}**";
+                var members = _memberCache.GetOrAdd(modelType, GetRenderableMembers);
 
+                // Single pass: Regex.Replace walks the original template once and the
+                // evaluator's output is appended to the result without being re-matched.
+                return PlaceholderRegex.Replace(template, match =>
+                {
+                    if (match.Groups["nested"].Success)
+                    {
+                        if (!members.TryGetValue(match.Groups["nested"].Value, out var member))
+                        {
+                            return match.Value; // e.g. Markdown **bold** that is not a member name
+                        }
+
+                        return RenderNested(model, member, templateSource, renderStack);
+                    }
+
+                    if (!members.TryGetValue(match.Groups["scalar"].Value, out var scalarMember))
+                    {
+                        return match.Value; // unknown placeholder is left in place
+                    }
+
+                    var memberType = GetMemberType(scalarMember);
                     if (IsListType(memberType))
                     {
-                        if (template.Contains(placeholder, StringComparison.Ordinal))
-                        {
-                            var itemType = memberType.GetGenericArguments()[0];
-                            var itemTemplateKey = GetTemplateKey(itemType)
-                                ?? throw new InvalidOperationException(
-                                    $"Member '{member.Name}' does not have an associated template.");
-
-                            var list = GetMemberValue(model, member) as IEnumerable;
-                            if (list != null)
-                            {
-                                var listOutput = "";
-                                foreach (var item in list)
-                                {
-                                    if (item == null) continue;
-                                    var itemTemplate = templateSource.GetTemplate(itemTemplateKey);
-                                    var renderedItem = RenderInternal(
-                                        item,
-                                        item.GetType(),
-                                        itemTemplate,
-                                        templateSource,
-                                        renderStack,
-                                        itemTemplateKey);
-                                    listOutput += renderedItem;
-                                }
-
-                                template = template.Replace(placeholder, listOutput);
-                            }
-                            else
-                            {
-                                // remove placeholder if null
-                                template = template.Replace(placeholder, string.Empty);
-                            }
-                        }
-
-                        // Don't treat list members as scalar placeholders
-                        continue;
+                        return match.Value; // lists are only rendered via **MemberName**
                     }
 
-                    if (template.Contains(placeholder, StringComparison.Ordinal))
-                    {
-                        var nestedTemplateKey = GetTemplateKey(memberType)
-                            ?? throw new InvalidOperationException(
-                                $"Member '{member.Name}' does not have an associated template.");
-
-                        var nestedValue = GetMemberValue(model, member);
-                        if (nestedValue == null)
-                        {
-                            template = template.Replace(placeholder, string.Empty);
-                        }
-                        else
-                        {
-                            var nestedTemplate = templateSource.GetTemplate(nestedTemplateKey);
-                            var nestedRendered = RenderInternal(
-                                nestedValue,
-                                nestedValue.GetType(),
-                                nestedTemplate,
-                                templateSource,
-                                renderStack,
-                                nestedTemplateKey);
-                            template = template.Replace(placeholder, nestedRendered);
-                        }
-
-                        // Don't treat nested template placeholders as scalars
-                        continue;
-                    }
-
-                    // Scalar members - use cached regex pattern
-                    var regex = _regexCache.GetOrAdd(member.Name, name =>
-                    {
-                        var pattern = $@"\|\|{Regex.Escape(name)}(?::([^|]+))?\|\|";
-                        return new Regex(pattern, RegexOptions.Compiled);
-                    });
-
-                    template = regex.Replace(template, match =>
-                    {
-                        var value = GetMemberValue(model, member);
-                        var format = match.Groups[1].Success ? match.Groups[1].Value : null;
-                        var formatted = FormatValue(value, memberType, format);
-                        return formatted ?? string.Empty;
-                    });
-                }
-
-                return template;
+                    var value = GetMemberValue(model, scalarMember);
+                    var format = match.Groups["format"].Success ? match.Groups["format"].Value : null;
+                    return FormatValue(value, memberType, format) ?? string.Empty;
+                });
             }
             finally
             {
                 renderStack.Remove(currentTemplateKey);
             }
+        }
+
+        private static string RenderNested(
+            object model,
+            MemberInfo member,
+            ITemplateSource templateSource,
+            HashSet<string> renderStack)
+        {
+            var memberType = GetMemberType(member);
+
+            if (IsListType(memberType))
+            {
+                var itemType = memberType.GetGenericArguments()[0];
+                var itemTemplateKey = GetTemplateKey(itemType)
+                    ?? throw new InvalidOperationException(
+                        $"Member '{member.Name}' does not have an associated template.");
+
+                if (!(GetMemberValue(model, member) is IEnumerable list))
+                {
+                    return string.Empty; // null list: remove the marker
+                }
+
+                var itemTemplate = templateSource.GetTemplate(itemTemplateKey);
+                var output = new StringBuilder();
+                foreach (var item in list)
+                {
+                    if (item == null) continue;
+                    output.Append(RenderInternal(
+                        item,
+                        item.GetType(),
+                        itemTemplate,
+                        templateSource,
+                        renderStack,
+                        itemTemplateKey));
+                }
+
+                return output.ToString();
+            }
+
+            var nestedTemplateKey = GetTemplateKey(memberType)
+                ?? throw new InvalidOperationException(
+                    $"Member '{member.Name}' does not have an associated template.");
+
+            var nestedValue = GetMemberValue(model, member);
+            if (nestedValue == null)
+            {
+                return string.Empty; // null object: remove the marker
+            }
+
+            var nestedTemplate = templateSource.GetTemplate(nestedTemplateKey);
+            return RenderInternal(
+                nestedValue,
+                nestedValue.GetType(),
+                nestedTemplate,
+                templateSource,
+                renderStack,
+                nestedTemplateKey);
+        }
+
+        private static IReadOnlyDictionary<string, MemberInfo> GetRenderableMembers(Type type)
+        {
+            var members = new Dictionary<string, MemberInfo>(StringComparer.Ordinal);
+
+            foreach (var field in type.GetFields(BindingFlags.Instance | BindingFlags.Public))
+            {
+                members.TryAdd(field.Name, field);
+            }
+
+            foreach (var property in type.GetProperties(BindingFlags.Instance | BindingFlags.Public))
+            {
+                if (property.CanRead && property.GetIndexParameters().Length == 0)
+                {
+                    members.TryAdd(property.Name, property);
+                }
+            }
+
+            return members;
         }
 
         private static string? GetTemplateKey(Type type)
@@ -206,7 +230,7 @@ namespace JY66.SimpleTemplateEngine
             if (!type.IsGenericType) return false;
             var generic = type.GetGenericTypeDefinition();
 
-            // Keep it simple: List<T> only (matches your original behavior)
+            // Keep it simple: List<T> only
             return generic == typeof(List<>);
         }
 

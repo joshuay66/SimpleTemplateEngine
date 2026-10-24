@@ -115,6 +115,11 @@ member name wrapped in double asterisks:
   exception noting the member name.
 - Circular template references are detected and result in a descriptive
   exception to prevent infinite loops.
+- Values are inserted literally. If a member's value happens to contain
+  `||Something||` or `**Something**`, that text is output as-is and is never
+  treated as a placeholder, so user-supplied data cannot pull in other members.
+- Placeholders that do not match a public member are left in place unchanged.
+  Member names are case-sensitive.
 
 ---
 
